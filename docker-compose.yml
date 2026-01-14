@@ -1,0 +1,122 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: boilerblade-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: boilerblade
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - boilerblade-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: boilerblade-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - boilerblade-network
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: boilerblade-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - boilerblade-network
+
+  # Boilerblade Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: boilerblade-app
+    environment:
+      # Application Configuration
+      MODE: development
+      FIBER_PORT: 3000
+      FIBER_APP_NAME: boilerblade
+      APP_KEY: your-secret-key-here-change-in-production
+      SERVER_MODE: both
+      
+      # Connection Enable Flags
+      ENABLE_DB: "true"
+      ENABLE_REDIS: "true"
+      ENABLE_AMQP: "true"
+      
+      # Database Configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: boilerblade
+      DB_MAX_OPEN_CONNS: 10
+      DB_MAX_IDLE_CONNS: 10
+      DB_MAX_LIFETIME_CONNS: 10
+      
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      
+      # AMQP Configuration
+      AMQP_HOST: rabbitmq
+      AMQP_PORT: 5672
+      AMQP_USER: guest
+      AMQP_PASSWORD: guest
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - boilerblade-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  boilerblade-network:
+    driver: bridge

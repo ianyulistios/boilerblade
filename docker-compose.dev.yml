@@ -1,0 +1,15 @@
+# Development override for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Mount source code for hot reload (if using air or similar)
+      - .:/app
+      - /app/vendor
+    environment:
+      MODE: development
+    command: go run main.go
