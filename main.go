@@ -45,13 +45,12 @@ func main() {
 		log.Fatal("Failed to initialize app:", err)
 	}
 
-	// Run database migrations (optional - uncomment if needed)
+	// Run database migrations (Goose)
 	if app.Config.Database != nil {
 		if err := migration.RunMigrations(app.Config.Database); err != nil {
 			log.Fatal("Failed to migrate database:", err)
 		}
 		log.Println("Database migration completed")
-		log.Printf("Registered models: %v", migration.GetRegisteredModels())
 	}
 
 	// Get server mode from environment (http, amqp, or both)

@@ -23,7 +23,7 @@ Boilerblade is a comprehensive Go boilerplate that provides:
 - **Clean Architecture** implementation with clear separation of concerns
 - **Code Generator CLI** for rapid development of CRUD operations
 - **JWT Authentication** middleware
-- **Database Migrations** with dynamic model registration
+- **Database Migrations** via Goose (SQL migrations, versioned)
 - **Dual Server Mode**: HTTP REST API and/or AMQP message queue consumers
 - **Multiple Database Support**: PostgreSQL, MySQL, SQLite
 - **Redis Integration** for caching and session management
@@ -38,7 +38,7 @@ Boilerblade is a comprehensive Go boilerplate that provides:
 - 🔐 **JWT Authentication** - Secure token-based authentication middleware
 - 🗄️ **Database Support** - PostgreSQL, MySQL, and SQLite via GORM
 - 📦 **Code Generator** - CLI tool to generate models, repositories, usecases, handlers, and DTOs
-- 🔄 **Auto Migrations** - Dynamic database migration system with model registry
+- 🔄 **Goose Migrations** - Versioned SQL migrations (PostgreSQL & MySQL)
 - 📡 **Dual Server Mode** - Run HTTP server, AMQP consumers, or both simultaneously
 - 📚 **Swagger Documentation** - Auto-generated API documentation
 - 🧪 **Test Structure** - Organized test files for handlers, usecases, and repositories
@@ -102,7 +102,7 @@ Boilerblade follows **Clean Architecture** principles with clear layer separatio
 1. **Repository Pattern** - Abstracts data access logic
 2. **Dependency Injection** - Loose coupling between layers
 3. **Factory Pattern** - Connection initialization (Database, Redis, AMQP)
-4. **Registry Pattern** - Dynamic model registration for migrations
+4. **Goose** - Versioned SQL migrations with Up/Down support
 5. **Middleware Pattern** - Authentication and request processing
 6. **Strategy Pattern** - Multiple database drivers support
 
@@ -192,14 +192,17 @@ boilerblade/
 │   ├── usecase/
 │   └── README_TEST.md
 │
-├── .env                          # Environment variables (create from env.example)
-├── env.example                   # Environment variables template
+├── .env                          # Environment variables (create from .env.example)
+├── .env.example                  # Environment template (app, DB, Redis, AMQP, Goose)
 ├── go.mod                        # Go module definition
 ├── go.sum                        # Go module checksums
 ├── main.go                       # Application entry point
 ├── Makefile                      # Build automation
 ├── build.sh                      # Linux/Mac build script
 ├── build.bat                     # Windows build script
+├── install.ps1                   # Windows global installer (C:\boilerblade\bin + PATH)
+├── install.sh                    # macOS/Linux global installer (~/.local/bin or /usr/local/bin)
+├── installer/                    # Native installers: .msi (Windows), .deb (Linux), .pkg (macOS)
 │
 └── README files:
     ├── README.md                 # This file (main documentation)
@@ -233,8 +236,8 @@ boilerblade/
 
 3. **Set up environment variables**
    ```bash
-   cp env.example .env
-   # Edit .env with your configuration
+   cp .env.example .env
+   # Edit .env with your credentials (DB, Redis, AMQP, APP_KEY, etc.)
    ```
 
 4. **Build the CLI tool** (optional)
@@ -251,6 +254,8 @@ boilerblade/
    ```
 
    For detailed installation instructions, see [README_BUILD.md](README_BUILD.md).
+
+   **Install globally (like Composer):** Run `boilerblade` from CMD, Git Bash, or Terminal from any directory. See [README_INSTALL.md](README_INSTALL.md) for Windows (`install.ps1`) and macOS/Linux (`install.sh`).
 
 5. **Run the application**
    ```bash
@@ -278,7 +283,7 @@ For detailed Docker setup instructions, see [README_DOCKER.md](README_DOCKER.md)
 
 ## ⚙️ Configuration
 
-Configuration is managed through environment variables. Copy `env.example` to `.env` and customize:
+Configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
 
 ### Server Configuration
 
@@ -484,14 +489,8 @@ Authorization: Bearer <your-jwt-token>
    boilerblade make all -name=Product -fields="Name:string:required,Price:float64:required"
    ```
 
-2. **Register model for migration**
-   Edit `src/migration/migration.go`:
-   ```go
-   func init() {
-       RegisterModel(&model.User{})
-       RegisterModel(&model.Product{}) // Add your new model
-   }
-   ```
+2. **Add a Goose migration** (if the feature adds new tables)
+   Add SQL file(s) under `src/migration/migrations/`, e.g. `00003_create_orders_table.postgres.sql` and `00003_create_orders_table.mysql.sql`. See [src/migration/README.md](src/migration/README.md).
 
 3. **Register routes**
    Edit `server/rest.go`:
@@ -560,6 +559,7 @@ For testing guidelines, see [test/README_TEST.md](test/README_TEST.md).
 ## 📖 Additional Documentation
 
 - **[README_BUILD.md](README_BUILD.md)** - Detailed build and installation instructions
+- **[README_INSTALL.md](README_INSTALL.md)** - Global installer (script: install.ps1 / install.sh; native: .msi, .deb, .pkg — see [installer/README.md](installer/README.md))
 - **[README_CLI.md](README_CLI.md)** - CLI code generator usage guide
 - **[README_CRUD_USER.md](README_CRUD_USER.md)** - Complete CRUD implementation example
 - **[README_SWAGGER.md](README_SWAGGER.md)** - Swagger/OpenAPI documentation guide

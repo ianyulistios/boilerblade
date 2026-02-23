@@ -38,12 +38,13 @@ func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
 	var req dto.CreateProductRequest
 	if err := c.BodyParser(&req); err != nil {
 		helper.LogError("Failed to parse request body", err, c.Path(), nil)
-		return c.Status(fiber.StatusBadRequest).JSON(helper.ErrBadRequest("Invalid request body"))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	productResponse, err := h.productUsecase.CreateProduct(&req)
 	if err != nil {
-		return helper.HandleUsecaseError(c, err)
+		helper.LogError("Failed to create product", err, c.Path(), req)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(productResponse)
@@ -54,12 +55,13 @@ func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		helper.LogError("Invalid product ID parameter", err, c.Path(), map[string]interface{}{"id_param": c.Params("id")})
-		return c.Status(fiber.StatusBadRequest).JSON(helper.ErrBadRequest("Invalid product ID"))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid product ID"})
 	}
 
 	productResponse, err := h.productUsecase.GetProductByID(uint(id))
 	if err != nil {
-		return helper.HandleUsecaseError(c, err)
+		helper.LogError("Failed to get product", err, c.Path(), nil)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(productResponse)
@@ -78,7 +80,8 @@ func (h *ProductHandler) GetAllProducts(c *fiber.Ctx) error {
 
 	productListResponse, err := h.productUsecase.GetAllProducts(limit, offset)
 	if err != nil {
-		return helper.HandleUsecaseError(c, err)
+		helper.LogError("Failed to get products", err, c.Path(), nil)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(productListResponse)
@@ -89,18 +92,19 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		helper.LogError("Invalid product ID parameter", err, c.Path(), map[string]interface{}{"id_param": c.Params("id")})
-		return c.Status(fiber.StatusBadRequest).JSON(helper.ErrBadRequest("Invalid product ID"))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid product ID"})
 	}
 
 	var req dto.UpdateProductRequest
 	if err := c.BodyParser(&req); err != nil {
 		helper.LogError("Failed to parse request body", err, c.Path(), nil)
-		return c.Status(fiber.StatusBadRequest).JSON(helper.ErrBadRequest("Invalid request body"))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	productResponse, err := h.productUsecase.UpdateProduct(uint(id), &req)
 	if err != nil {
-		return helper.HandleUsecaseError(c, err)
+		helper.LogError("Failed to update product", err, c.Path(), req)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(productResponse)
@@ -111,11 +115,12 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		helper.LogError("Invalid product ID parameter", err, c.Path(), map[string]interface{}{"id_param": c.Params("id")})
-		return c.Status(fiber.StatusBadRequest).JSON(helper.ErrBadRequest("Invalid product ID"))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid product ID"})
 	}
 
 	if err := h.productUsecase.DeleteProduct(uint(id)); err != nil {
-		return helper.HandleUsecaseError(c, err)
+		helper.LogError("Failed to delete product", err, c.Path(), nil)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

@@ -83,6 +83,8 @@ boilerblade -layer=<layer> -name=<EntityName> [-fields=<fields>]
 - `usecase` - Generate usecase file
 - `handler` - Generate handler file
 - `dto` - Generate DTO file
+- `consumer` - Generate RabbitMQ consumer from name and optional title (general-purpose)
+- `migration` - Create Goose SQL migration (postgres + mysql placeholder files)
 - `all` - Generate all layers (model, dto, repository, usecase, handler)
 
 ### Options
@@ -140,6 +142,37 @@ boilerblade make handler -name=Product
 boilerblade make dto -name=Product -fields="Name:string:required,Price:float64:required"
 ```
 
+### Generate RabbitMQ Consumer (general-purpose)
+
+Generates a RabbitMQ consumer from **name** and optional **title** only (no entity/fields). Use any name you want (e.g. OrderEvents, payment, inventory).
+
+```bash
+boilerblade make consumer -name=OrderEvents
+boilerblade make consumer -name=payment -title="Payment"
+boilerblade make consumer -name=order_events -title="Order Events"
+```
+
+Generated files:
+- `constants/amqp_<identifier>.go` – exchange name, created/updated queue names, routing keys, intervals (identifier is snake_case from name, e.g. order_events)
+- `src/consumer/<identifier>.go` – consumer struct, `ProcessCreated`, `ProcessUpdated`, generic message handlers (payload as `map[string]interface{}`); add your logic in `handleCreatedMessage` / `handleUpdatedMessage`
+
+Register the consumer in `server/amqp.go` and add your business logic in the handler TODOs.
+
+### Generate Goose Migration
+
+Creates a new Goose migration with placeholder Up/Down SQL for both PostgreSQL and MySQL.
+
+```bash
+boilerblade make migration -name=add_orders_table
+boilerblade make migration -name=add_index_to_users
+```
+
+Generated files (in `src/migration/migrations/`):
+- `<timestamp>_<name>.postgres.sql`
+- `<timestamp>_<name>.mysql.sql`
+
+Edit the files to add your SQL, then run the app (migrations run on startup) or use the Goose CLI.
+
 ### Show Help
 
 ```bash
@@ -176,6 +209,12 @@ boilerblade version
 - CRUD endpoints: GET, POST, PUT, DELETE
 - Error handling dengan helper
 
+### Consumer (`consumer` – RabbitMQ, general-purpose)
+- **-name** (required): consumer name (e.g. OrderEvents, payment, order_events). Normalized to identifier (snake_case) and struct name (PascalCase).
+- **-title** (optional): human-readable title (e.g. "Order Events"); used in comments and logs.
+- **constants/amqp_&lt;identifier&gt;.go** – Exchange, queue names, routing keys, intervals.
+- **src/consumer/&lt;identifier&gt;.go** – Consumer struct (no usecase/DTO), `ProcessCreated`, `ProcessUpdated`, handlers with generic payload; add your logic and register in `server/amqp.go`.
+
 ### DTO (`src/dto/<entity>.go`)
 - CreateRequest struct
 - UpdateRequest struct
@@ -197,10 +236,7 @@ Setelah generate, Anda perlu:
    productHandler := handler.NewProductHandler(productUsecase)
    productHandler.RegisterRoutes(apiV1Group)
    ```
-5. **Register Model for Migration** - Tambahkan ke `src/migration/migration.go`:
-   ```go
-   RegisterModel(&model.Product{})
-   ```
+5. **Add Goose migration** (if new tables) - Buat file SQL di `src/migration/migrations/`, misalnya `00003_create_products_table.postgres.sql` dan `.mysql.sql`. Lihat [src/migration/README.md](src/migration/README.md).
 
 ## Notes
 

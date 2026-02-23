@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Boilerblade" Language="1033" Version="1.0.0" Manufacturer="Boilerblade" UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Description="Boilerblade CLI - Go boilerplate generator" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <Media Id="1" Cabinet="boilerblade.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="BoilerbladeDir" Name="boilerblade" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="BoilerbladeDir">
+      <Component Id="BoilerbladeExe" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
+        <File Id="BoilerbladeExe" Source="$(var.SourceDir)\boilerblade.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="PathEnv" Guid="c3d4e5f6-a7b8-9012-cdef-123456789012">
+        <Environment Id="Path" Name="PATH" Value="[BoilerbladeDir]" Permanent="yes" Part="last" Action="set" System="yes" />
+        <CreateFolder />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Title="Boilerblade CLI" Level="1">
+      <ComponentRef Id="BoilerbladeExe" />
+      <ComponentRef Id="PathEnv" />
+    </Feature>
+  </Product>
+</Wix>

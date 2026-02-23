@@ -52,7 +52,7 @@ func CreateNewProject(projectName string) error {
 	excludeFiles := map[string]bool{
 		"boilerblade.exe": true,
 		"generate.exe":    true,
-		".env":            true, // Don't copy .env, will create from env.example
+		".env":            true, // Don't copy .env; create from .env.example
 	}
 
 	// Copy files and directories
@@ -67,7 +67,7 @@ func CreateNewProject(projectName string) error {
 		return fmt.Errorf("failed to update go.mod: %w", err)
 	}
 
-	// Create .env from env.example
+	// Create .env from .env.example
 	if err := createEnvFile(projectPath, projectName); err != nil {
 		return fmt.Errorf("failed to create .env file: %w", err)
 	}
@@ -82,8 +82,7 @@ func CreateNewProject(projectName string) error {
 	fmt.Println("Next steps:")
 	fmt.Printf("  cd %s\n", projectName)
 	fmt.Println("  go mod download")
-	fmt.Println("  cp env.example .env")
-	fmt.Println("  # Edit .env with your configuration")
+	fmt.Println("  # .env was created from .env.example — edit with your credentials if needed")
 	fmt.Println("  go run main.go")
 
 	return nil
@@ -196,15 +195,16 @@ func updateGoMod(projectPath, projectName string) error {
 }
 
 func createEnvFile(projectPath, projectName string) error {
-	envExamplePath := filepath.Join(projectPath, "env.example")
+	envExamplePath := filepath.Join(projectPath, ".env.example")
 	envPath := filepath.Join(projectPath, ".env")
 
-	content, err := os.ReadFile(envExamplePath)
-	if err != nil {
-		return err
+	var content []byte
+	var err error
+	if content, err = os.ReadFile(envExamplePath); err != nil {
+		// Fallback to embedded template if .env.example was not copied
+		content = []byte(envExampleContent)
 	}
 
-	// Replace boilerblade with project name in .env
 	contentStr := string(content)
 	contentStr = strings.ReplaceAll(contentStr, "FIBER_APP_NAME=boilerblade", fmt.Sprintf("FIBER_APP_NAME=%s", projectName))
 	contentStr = strings.ReplaceAll(contentStr, "DB_NAME=boilerblade", fmt.Sprintf("DB_NAME=%s", projectName))

@@ -4,11 +4,17 @@ import (
 	"boilerblade/internal/generator"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 )
 
 // HandleMakeCommand processes the make command
 func HandleMakeCommand(args []string) error {
+	// Ensure project has .env.example when generating (so env is part of "generate project")
+	if wd, err := os.Getwd(); err == nil {
+		_ = EnsureEnvExample(wd)
+	}
+
 	if len(args) < 1 {
 		return fmt.Errorf("resource type is required")
 	}
@@ -18,18 +24,55 @@ func HandleMakeCommand(args []string) error {
 
 	// Parse flags
 	fs := flag.NewFlagSet("make", flag.ContinueOnError)
-	name := fs.String("name", "", "Name of the entity (e.g., Product, Order)")
+	name := fs.String("name", "", "Name of the entity or consumer (e.g., Product, OrderEvents)")
+	title := fs.String("title", "", "Title for consumer only (e.g., \"Order Events\"); optional")
 	fields := fs.String("fields", "", "Fields for model (format: Name:string:required,Price:float64:required)")
 
 	if err := fs.Parse(remainingArgs); err != nil {
 		return err
 	}
 
+	resourceLower := strings.ToLower(resourceType)
+
+	// Consumer: general-purpose, only -name and -title
+	if resourceLower == "consumer" {
+		if *name == "" {
+			return fmt.Errorf("consumer name is required (use -name flag, e.g. -name=OrderEvents or -name=order_events)")
+		}
+		consumerGen := generator.NewConsumerGen(*name, *title)
+		if err := consumerGen.GenerateAMQPConstants(); err != nil {
+			return fmt.Errorf("generating AMQP constants: %w", err)
+		}
+		fmt.Printf("✓ AMQP constants generated (constants/amqp_%s.go)\n", consumerGen.Identifier)
+		if err := consumerGen.GenerateConsumer(); err != nil {
+			return fmt.Errorf("generating consumer: %w", err)
+		}
+		fmt.Printf("✓ RabbitMQ consumer \"%s\" generated (src/consumer/%s.go)\n", consumerGen.Title, consumerGen.Identifier)
+		fmt.Println("  Register the consumer in server/amqp.go and add your logic in handleCreatedMessage/handleUpdatedMessage.")
+		return nil
+	}
+
+	// Migration: Goose SQL migration (postgres + mysql placeholder files)
+	if resourceLower == "migration" {
+		if *name == "" {
+			return fmt.Errorf("migration name is required (use -name flag, e.g. -name=add_orders_table)")
+		}
+		migrationGen := generator.NewMigrationGen(*name)
+		if err := migrationGen.Generate(); err != nil {
+			return fmt.Errorf("generating migration: %w", err)
+		}
+		pg, my := migrationGen.GeneratedFiles()
+		fmt.Printf("✓ Goose migration created: %s\n", pg)
+		fmt.Printf("✓ Goose migration created: %s\n", my)
+		fmt.Println("  Edit the files to add your Up/Down SQL, then run the app or use goose up.")
+		return nil
+	}
+
 	if *name == "" {
 		return fmt.Errorf("entity name is required (use -name flag)")
 	}
 
-	// Convert name to proper format
+	// Convert name to proper format for entity layers
 	entityName := strings.Title(strings.ToLower(*name))
 	entityNameLower := strings.ToLower(*name)
 
@@ -41,7 +84,7 @@ func HandleMakeCommand(args []string) error {
 
 	gen := generator.NewGenerator(entityName, entityNameLower, modelFields)
 
-	switch strings.ToLower(resourceType) {
+	switch resourceLower {
 	case "model":
 		if err := gen.GenerateModel(); err != nil {
 			return fmt.Errorf("generating model: %w", err)
@@ -79,7 +122,7 @@ func HandleMakeCommand(args []string) error {
 		fmt.Printf("✓ All layers for %s generated successfully\n", entityName)
 
 	default:
-		return fmt.Errorf("unknown resource type: %s. Available: model, repository, usecase, handler, dto, all", resourceType)
+		return fmt.Errorf("unknown resource type: %s. Available: model, repository, usecase, handler, dto, consumer, migration, all", resourceType)
 	}
 
 	return nil

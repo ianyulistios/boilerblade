@@ -99,7 +99,8 @@ func (e *Env) getDSN() (string, string) {
 	switch dbType {
 	case "mysql":
 		// MySQL DSN format: user:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		// multiStatements=true required for Goose migrations with multiple statements per file
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&multiStatements=true",
 			e.DB_USER, e.DB_PASSWORD, e.DB_HOST, e.DB_PORT, e.DB_NAME)
 		return dsn, "mysql"
 	case "postgres", "postgresql":

@@ -1,116 +1,99 @@
-# Dynamic Migration System
+# Goose Migration System
 
-Sistem migration dinamis yang dapat menampung beberapa model sekaligus.
+Migrations are managed with [Goose](https://github.com/pressly/goose). SQL migration files are stored in `src/migration/migrations/` and are embedded into the binary. Dialect is inferred from the GORM database (PostgreSQL or MySQL).
 
-## Cara Kerja
+## How It Works
 
-Sistem ini menggunakan **Registry Pattern** untuk mendaftarkan semua model yang perlu di-migrate. Semua model yang terdaftar akan otomatis di-migrate saat aplikasi start.
+- **SQL migrations**: Each file is named `NNNNN_description.dialect.sql` (e.g. `00001_create_users_table.postgres.sql`, `00001_create_users_table.mysql.sql`). Goose runs only the files matching the current database dialect.
+- **Up/Down**: Each file has `-- +goose Up` and `-- +goose Down` sections. On startup, `RunMigrations` runs all pending **Up** migrations.
+- **Versioning**: Goose tracks applied migrations in the `goose_db_version` table.
 
-## Menambahkan Model Baru
+## Adding a New Migration
 
-### 1. Buat Model di `src/model/`
+### Option 1: CLI (recommended)
 
-```go
-// src/model/order.go
-package model
+From the project root:
 
-import (
-	"time"
-	"gorm.io/gorm"
-)
-
-type Order struct {
-	ID        uint           `json:"id" gorm:"primaryKey"`
-	UserID    uint           `json:"user_id" gorm:"not null"`
-	Total     float64        `json:"total" gorm:"not null"`
-	Status    string         `json:"status" gorm:"default:pending"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
-}
-
-func (Order) TableName() string {
-	return "orders"
-}
+```bash
+boilerblade make migration -name=add_orders_table
 ```
 
-### 2. Daftarkan Model di `src/migration/create_users_table.go`
+This creates two files in `src/migration/migrations/`: `<timestamp>_add_orders_table.postgres.sql` and `<timestamp>_add_orders_table.mysql.sql` with placeholder `-- +goose Up` and `-- +goose Down` sections. Edit them to add your SQL.
 
-```go
-// src/migration/create_users_table.go
-func init() {
-	RegisterModel(&model.User{})
-	RegisterModel(&model.Product{})
-	RegisterModel(&model.Order{}) // Tambahkan model baru di sini
-}
+### Option 2: Manual
+
+1. Add one or two new SQL files under `src/migration/migrations/`:
+   - For both dialects: `00003_create_orders_table.postgres.sql` and `00003_create_orders_table.mysql.sql`
+   - Or a single dialect-neutral file if your SQL is compatible: `00003_create_orders_table.sql`
+
+2. Use this format:
+
+```sql
+-- +goose Up
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    -- ...
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS orders;
 ```
 
-Selesai! Model akan otomatis di-migrate saat aplikasi start.
+3. Rebuild and run the app; migrations run automatically on startup.
 
-## Fungsi yang Tersedia
+## API
 
 ### `RunMigrations(db *gorm.DB) error`
-Menjalankan migration untuk semua model yang terdaftar.
+
+Runs all pending Goose migrations using the same connection as the given GORM DB. Dialect is taken from GORM (postgres or mysql).
 
 ```go
-if err := migration.RunMigrations(db); err != nil {
+if err := migration.RunMigrations(app.Config.Database); err != nil {
     log.Fatal("Failed to migrate:", err)
 }
 ```
 
-### `RegisterModel(model interface{})`
-Mendaftarkan model baru untuk migration (biasanya dipanggil di `init()`).
+### `RunMigrationsWithDB(sqlDB *sql.DB, dialect string) error`
+
+Runs migrations with a raw `*sql.DB` and dialect (`"postgres"` or `"mysql"`). Use when you are not using GORM.
 
 ```go
-migration.RegisterModel(&model.User{})
+if err := migration.RunMigrationsWithDB(sqlDB, "postgres"); err != nil {
+    log.Fatal("Failed to migrate:", err)
+}
 ```
 
-### `GetRegisteredModels() []string`
-Mengembalikan daftar nama model yang terdaftar.
-
-```go
-models := migration.GetRegisteredModels()
-// Output: ["User", "Product", "Order"]
-```
-
-## Contoh Penggunaan
-
-### Di main.go
+## Usage in main.go
 
 ```go
 import "boilerblade/src/migration"
 
 func main() {
-	app, _ := server.NewApp()
-	
-	// Run migrations
-	if app.Config.Database != nil {
-		if err := migration.RunMigrations(app.Config.Database); err != nil {
-			log.Fatal("Failed to migrate:", err)
-		}
-		log.Printf("Migrated models: %v", migration.GetRegisteredModels())
-	}
+    app, _ := server.NewApp(env)
+
+    if app.Config.Database != nil {
+        if err := migration.RunMigrations(app.Config.Database); err != nil {
+            log.Fatal("Failed to migrate database:", err)
+        }
+        log.Println("Database migration completed")
+    }
 }
 ```
 
-## Logging
+## CLI (optional)
 
-Sistem migration akan log:
-- Jumlah model yang akan di-migrate
-- Setiap model yang sedang di-migrate
-- Status sukses/gagal untuk setiap model
-- Summary setelah semua migration selesai
+You can also run migrations via the Goose CLI:
 
-## Keuntungan
+```bash
+go install github.com/pressly/goose/v3/cmd/goose@latest
+GOOSE_DRIVER=postgres GOOSE_DBSTRING="host=localhost port=5432 user=postgres password=postgres dbname=boilerblade sslmode=disable" GOOSE_MIGRATION_DIR=./src/migration/migrations goose up
+```
 
-1. **Otomatis**: Semua model terdaftar otomatis di-migrate
-2. **Fleksibel**: Mudah menambahkan model baru
-3. **Terpusat**: Semua model terdaftar di satu tempat
-4. **Logging**: Detail logging untuk debugging
-5. **Error Handling**: Error handling yang baik untuk setiap model
+## Current Migrations
 
-## Model yang Sudah Terdaftar
+- `00001_create_users_table` – users table (PostgreSQL + MySQL)
+- `00002_create_products_table` – products table (PostgreSQL + MySQL)
 
-- `User` - User entity
-- `Product` - Product entity
-- (Tambahkan model lain sesuai kebutuhan)
+## MySQL note
+
+For MySQL, the DSN should include `multiStatements=true` when a single migration file runs multiple statements (e.g. `CREATE TABLE` plus `CREATE INDEX`). The project’s database config adds this where needed.

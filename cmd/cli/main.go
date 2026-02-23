@@ -39,6 +39,8 @@ func main() {
 			fmt.Println("  usecase     - Generate usecase file")
 			fmt.Println("  handler     - Generate handler file")
 			fmt.Println("  dto         - Generate DTO file")
+			fmt.Println("  consumer    - Generate RabbitMQ consumer (-name and optional -title; general-purpose)")
+			fmt.Println("  migration   - Create Goose SQL migration (-name, e.g. add_orders_table)")
 			fmt.Println("  all         - Generate all layers")
 			os.Exit(1)
 		}

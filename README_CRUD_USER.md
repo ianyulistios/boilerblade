@@ -84,9 +84,11 @@ Tambahkan di `main.go` atau buat migration script:
 ```go
 import "boilerblade/src/migration"
 
-// After app initialization
-if err := migration.CreateUsersTable(app.Config.Database); err != nil {
-    log.Fatal("Failed to migrate database:", err)
+// After app initialization (migrations run automatically in main.go)
+if app.Config.Database != nil {
+    if err := migration.RunMigrations(app.Config.Database); err != nil {
+        log.Fatal("Failed to migrate database:", err)
+    }
 }
 ```
 

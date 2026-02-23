@@ -39,7 +39,7 @@ WORKDIR /root/
 COPY --from=builder /app/boilerblade .
 
 # Copy environment example (for reference)
-COPY --from=builder /app/env.example .
+COPY --from=builder /app/.env.example .
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

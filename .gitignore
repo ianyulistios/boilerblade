@@ -1,0 +1,32 @@
+# Environment (secrets and local overrides)
+.env
+.env.local
+.env.*.local
+
+# Binaries
+bin/
+*.exe
+boilerblade
+generate
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+*.test
+coverage.out
+*.prof
+
+# Logs and temp
+*.log
+logs/
+tmp/
+temp/
